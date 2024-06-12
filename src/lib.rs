@@ -403,6 +403,38 @@ pub fn jsonrpc_message_derive(input: TokenStream) -> TokenStream {
     //     _ => panic!("JsonRpcMessage can only be derived for structs and enums"),
     // }
 
+    // match input.data {
+    //     Data::Struct(ref data) => {
+    //         if let Fields::Named(ref fields) = data.fields {
+    //             for field in fields.named.iter() {
+    //                 if let Some(ident) = field.ident {
+    //                     if ident == "id" {
+    //                         id_field = Some(ident);
+    //                         id_type = Some(field.ty.clone());
+    //                         has_id = true;
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     Data::Enum(ref data) => {
+    //         for variant in data.variants.iter() {
+    //             if let Fields::Named(ref fields) = variant.fields {
+    //                 for field in fields.named.iter() {
+    //                     if let Some(ident) = field.ident {
+    //                         if ident == "id" {
+    //                             id_field = Some(ident);
+    //                             id_type = Some(field.ty.clone());
+    //                             has_id = true;
+    //                         }
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     _ => panic!("JsonRpcMessage can only be derived for structs and enums"),
+    // }
+
     match input.data {
         Data::Struct(ref data) => {
             if let Fields::Named(ref fields) = data.fields {
