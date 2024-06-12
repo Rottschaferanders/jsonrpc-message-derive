@@ -6,7 +6,7 @@ use quote::{quote, format_ident};
 // use syn::{parse_macro_input, DeriveInput, Fields, Data, FieldsNamed, Field, DataEnum, Variant};
 // use syn::{parse_macro_input, DeriveInput, Fields, Data, FieldsNamed, Field, DataEnum, Variant, Type};
 // use syn::spanned::Spanned;
-use syn::{parse_macro_input, DeriveInput, Fields, Data, FieldsNamed, Field, DataEnum, Variant, Type, TypePath, PathArguments, PathSegment};
+use syn::{parse_macro_input, DeriveInput, Fields, Data, FieldsNamed, Field, DataEnum, Variant, Type, TypePath, PathArguments, PathSegment, GenericArgument};
 use std::collections::HashSet;
 
 
