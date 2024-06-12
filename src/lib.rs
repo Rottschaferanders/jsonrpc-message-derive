@@ -407,43 +407,6 @@ pub fn jsonrpc_message_derive(input: TokenStream) -> TokenStream {
         println!("cargo:warning=JsonRpcMessage derived for {} without an id field. Unless this is intended for parsing JSON-RPC notification messages, consider adding an id field.", name);
     }
 
-    // let id_type = if let Some(id_type) = id_type {
-    //     match id_type {
-    //         Type::Path(TypePath { path, .. }) => {
-    //             let segments = path.segments.iter().collect::<Vec<_>>();
-    //             if let Some(PathSegment { ident, arguments }) = segments.last() {
-    //                 match (ident.to_string().as_str(), arguments) {
-    //                     ("Option", PathArguments::AngleBracketed(args)) => {
-    //                         if let Some(Type::Path(TypePath { path, .. })) = args.args.first() {
-    //                             let segments = path.segments.iter().collect::<Vec<_>>();
-    //                             if let Some(PathSegment { ident, .. }) = segments.last() {
-    //                                 match ident.to_string().as_str() {
-    //                                     "u8" | "u16" | "u32" | "u64" | "u128" | "i8" | "i16" | "i32" | "i64" | "i128" | "Uuid" => {
-    //                                         quote! { #id_type }
-    //                                     }
-    //                                     _ => panic!("JsonRpcMessage id field must be an integer type or UUID"),
-    //                                 }
-    //                             } else {
-    //                                 panic!("JsonRpcMessage id field must be an integer type or UUID");
-    //                             }
-    //                         } else {
-    //                             panic!("JsonRpcMessage id field must be an integer type or UUID");
-    //                         }
-    //                     }
-    //                     ("u8" | "u16" | "u32" | "u64" | "u128" | "i8" | "i16" | "i32" | "i64" | "i128" | "Uuid", _) => {
-    //                         quote! { std::option::Option<#id_type> }
-    //                     }
-    //                     _ => panic!("JsonRpcMessage id field must be an integer type or UUID"),
-    //                 }
-    //             } else {
-    //                 panic!("JsonRpcMessage id field must be an integer type or UUID");
-    //             }
-    //         }
-    //         _ => panic!("JsonRpcMessage id field must be an integer type or UUID"),
-    //     }
-    // } else {
-    //     quote! { std::option::Option<u32> }
-    // };
     let id_type = if let Some(id_type) = id_type {
         match id_type {
             Type::Path(TypePath { path, .. }) => {
@@ -451,22 +414,18 @@ pub fn jsonrpc_message_derive(input: TokenStream) -> TokenStream {
                 if let Some(PathSegment { ident, arguments }) = segments.last() {
                     match (ident.to_string().as_str(), arguments) {
                         ("Option", PathArguments::AngleBracketed(args)) => {
-                            if let Some(arg) = args.args.first() {
-                                match arg {
-                                    GenericArgument::Type(Type::Path(TypePath { path, .. })) => {
-                                        let segments = path.segments.iter().collect::<Vec<_>>();
-                                        if let Some(PathSegment { ident, .. }) = segments.last() {
-                                            match ident.to_string().as_str() {
-                                                "u8" | "u16" | "u32" | "u64" | "u128" | "i8" | "i16" | "i32" | "i64" | "i128" | "Uuid" => {
-                                                    quote! { #id_type }
-                                                }
-                                                _ => panic!("JsonRpcMessage id field must be an integer type or UUID"),
-                                            }
-                                        } else {
-                                            panic!("JsonRpcMessage id field must be an integer type or UUID");
+                            // if let Some(Type::Path(TypePath { path, .. })) = args.args.first() {
+                            if let Some(syn::GenericArgument::Type(Type::Path(TypePath { path, .. }))) = args.args.first() {
+                                let segments = path.segments.iter().collect::<Vec<_>>();
+                                if let Some(PathSegment { ident, .. }) = segments.last() {
+                                    match ident.to_string().as_str() {
+                                        "u8" | "u16" | "u32" | "u64" | "u128" | "i8" | "i16" | "i32" | "i64" | "i128" | "Uuid" => {
+                                            quote! { #id_type }
                                         }
+                                        _ => panic!("JsonRpcMessage id field must be an integer type or UUID"),
                                     }
-                                    _ => panic!("JsonRpcMessage id field must be an integer type or UUID"),
+                                } else {
+                                    panic!("JsonRpcMessage id field must be an integer type or UUID");
                                 }
                             } else {
                                 panic!("JsonRpcMessage id field must be an integer type or UUID");
@@ -486,6 +445,49 @@ pub fn jsonrpc_message_derive(input: TokenStream) -> TokenStream {
     } else {
         quote! { std::option::Option<u32> }
     };
+
+    // let id_type = if let Some(id_type) = id_type {
+    //     match id_type {
+    //         Type::Path(TypePath { path, .. }) => {
+    //             let segments = path.segments.iter().collect::<Vec<_>>();
+    //             if let Some(PathSegment { ident, arguments }) = segments.last() {
+    //                 match (ident.to_string().as_str(), arguments) {
+    //                     ("Option", PathArguments::AngleBracketed(args)) => {
+    //                         if let Some(arg) = args.args.first() {
+    //                             match arg {
+    //                                 GenericArgument::Type(Type::Path(TypePath { path, .. })) => {
+    //                                     let segments = path.segments.iter().collect::<Vec<_>>();
+    //                                     if let Some(PathSegment { ident, .. }) = segments.last() {
+    //                                         match ident.to_string().as_str() {
+    //                                             "u8" | "u16" | "u32" | "u64" | "u128" | "i8" | "i16" | "i32" | "i64" | "i128" | "Uuid" => {
+    //                                                 quote! { #id_type }
+    //                                             }
+    //                                             _ => panic!("JsonRpcMessage id field must be an integer type or UUID"),
+    //                                         }
+    //                                     } else {
+    //                                         panic!("JsonRpcMessage id field must be an integer type or UUID");
+    //                                     }
+    //                                 }
+    //                                 _ => panic!("JsonRpcMessage id field must be an integer type or UUID"),
+    //                             }
+    //                         } else {
+    //                             panic!("JsonRpcMessage id field must be an integer type or UUID");
+    //                         }
+    //                     }
+    //                     ("u8" | "u16" | "u32" | "u64" | "u128" | "i8" | "i16" | "i32" | "i64" | "i128" | "Uuid", _) => {
+    //                         quote! { std::option::Option<#id_type> }
+    //                     }
+    //                     _ => panic!("JsonRpcMessage id field must be an integer type or UUID"),
+    //                 }
+    //             } else {
+    //                 panic!("JsonRpcMessage id field must be an integer type or UUID");
+    //             }
+    //         }
+    //         _ => panic!("JsonRpcMessage id field must be an integer type or UUID"),
+    //     }
+    // } else {
+    //     quote! { std::option::Option<u32> }
+    // };
 
     let expanded = quote! {
         impl #impl_generics JsonRpcMessage for #name #ty_generics #where_clause {
