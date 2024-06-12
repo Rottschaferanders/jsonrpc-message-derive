@@ -43,10 +43,117 @@ use syn::{parse_macro_input, DeriveInput, Fields, Data, FieldsNamed, Field, Data
 // }
 
 
+// #[proc_macro_derive(JsonRpcMessage)]
+// pub fn jsonrpc_message_derive(input: TokenStream) -> TokenStream {
+//     let input = parse_macro_input!(input as DeriveInput);
+//     let name = input.ident;
+
+//     let expanded = match input.data {
+//         Data::Struct(data) => {
+//             let fields = match data.fields {
+//                 Fields::Named(fields) => fields,
+//                 _ => panic!("JsonRpcMessage can only be derived for structs with named fields"),
+//             };
+
+//             let id_field = fields.named.iter().find(|field| field.ident.as_ref().unwrap() == "id");
+
+//             if id_field.is_none() {
+//                 panic!("JsonRpcMessage requires an 'id' field");
+//             }
+
+//             let id_field = id_field.unwrap();
+
+//             let id_type = &id_field.ty;
+
+//             quote! {
+//                 impl JsonRpcMessage for #name {
+//                     fn id(&self) -> Option<#id_type> {
+//                         Some(self.id)
+//                     }
+
+//                     fn set_id(&mut self, id: #id_type) {
+//                         self.id = id;
+//                     }
+//                 }
+//             }
+//         }
+//         Data::Enum(data) => {
+//             let variants = data.variants;
+
+//             let match_arms = variants.iter().map(|variant| {
+//                 let variant_name = &variant.ident;
+//                 let fields = match &variant.fields {
+//                     Fields::Named(fields) => fields,
+//                     _ => panic!("JsonRpcMessage can only be derived for enums with named fields"),
+//                 };
+
+//                 let id_field = fields.named.iter().find(|field| field.ident.as_ref().unwrap() == "id");
+
+//                 if id_field.is_none() {
+//                     panic!("JsonRpcMessage requires an 'id' field in each enum variant");
+//                 }
+
+//                 let id_field = id_field.unwrap();
+
+//                 let id_type = &id_field.ty;
+
+//                 quote! {
+//                     #name::#variant_name { id, .. } => Some(*id),
+//                 }
+//             });
+
+//             let set_id_match_arms = variants.iter().map(|variant| {
+//                 let variant_name = &variant.ident;
+//                 let fields = match &variant.fields {
+//                     Fields::Named(fields) => fields,
+//                     _ => panic!("JsonRpcMessage can only be derived for enums with named fields"),
+//                 };
+
+//                 let id_field = fields.named.iter().find(|field| field.ident.as_ref().unwrap() == "id");
+
+//                 if id_field.is_none() {
+//                     panic!("JsonRpcMessage requires an 'id' field in each enum variant");
+//                 }
+
+//                 let id_field = id_field.unwrap();
+
+//                 let id_type = &id_field.ty;
+
+//                 quote! {
+//                     #name::#variant_name { id, .. } => *id = new_id,
+//                 }
+//             });
+
+//             quote! {
+//                 impl JsonRpcMessage for #name {
+//                     fn id(&self) -> Option<u32> {
+//                         match self {
+//                             #(#match_arms)*
+//                             _ => None,
+//                         }
+//                     }
+
+//                     fn set_id(&mut self, new_id: u32) {
+//                         match self {
+//                             #(#set_id_match_arms)*
+//                             _ => {},
+//                         }
+//                     }
+//                 }
+//             }
+//         }
+//         _ => panic!("JsonRpcMessage can only be derived for structs or enums"),
+//     };
+
+//     TokenStream::from(expanded)
+// }
+
 #[proc_macro_derive(JsonRpcMessage)]
 pub fn jsonrpc_message_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = input.ident;
+
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
     let expanded = match input.data {
         Data::Struct(data) => {
@@ -66,9 +173,9 @@ pub fn jsonrpc_message_derive(input: TokenStream) -> TokenStream {
             let id_type = &id_field.ty;
 
             quote! {
-                impl JsonRpcMessage for #name {
+                impl #impl_generics JsonRpcMessage for #name #ty_generics #where_clause {
                     fn id(&self) -> Option<#id_type> {
-                        Some(self.id)
+                        self.id
                     }
 
                     fn set_id(&mut self, id: #id_type) {
@@ -78,71 +185,62 @@ pub fn jsonrpc_message_derive(input: TokenStream) -> TokenStream {
             }
         }
         Data::Enum(data) => {
-            let variants = data.variants;
-
-            let match_arms = variants.iter().map(|variant| {
+            let variants = data.variants.iter().map(|variant| {
                 let variant_name = &variant.ident;
-                let fields = match &variant.fields {
-                    Fields::Named(fields) => fields,
+                match &variant.fields {
+                    Fields::Named(fields) => {
+                        let id_field = fields.named.iter().find(|field| field.ident.as_ref().unwrap() == "id");
+                        if let Some(id_field) = id_field {
+                            let id_type = &id_field.ty;
+                            quote! {
+                                #name::#variant_name { id, .. } => Some(*id),
+                            }
+                        } else {
+                            quote! {
+                                #name::#variant_name { .. } => None,
+                            }
+                        }
+                    }
                     _ => panic!("JsonRpcMessage can only be derived for enums with named fields"),
-                };
-
-                let id_field = fields.named.iter().find(|field| field.ident.as_ref().unwrap() == "id");
-
-                if id_field.is_none() {
-                    panic!("JsonRpcMessage requires an 'id' field in each enum variant");
-                }
-
-                let id_field = id_field.unwrap();
-
-                let id_type = &id_field.ty;
-
-                quote! {
-                    #name::#variant_name { id, .. } => Some(*id),
                 }
             });
-
-            let set_id_match_arms = variants.iter().map(|variant| {
+            let variants_set_id = data.variants.iter().map(|variant| {
                 let variant_name = &variant.ident;
-                let fields = match &variant.fields {
-                    Fields::Named(fields) => fields,
+                match &variant.fields {
+                    Fields::Named(fields) => {
+                        let id_field = fields.named.iter().find(|field| field.ident.as_ref().unwrap() == "id");
+                        if let Some(id_field) = id_field {
+                            let id_type = &id_field.ty;
+                            quote! {
+                                #name::#variant_name { id, .. } => *id = new_id,
+                            }
+                        } else {
+                            quote! {
+                                #name::#variant_name { .. } => {},
+                            }
+                        }
+                    }
                     _ => panic!("JsonRpcMessage can only be derived for enums with named fields"),
-                };
-
-                let id_field = fields.named.iter().find(|field| field.ident.as_ref().unwrap() == "id");
-
-                if id_field.is_none() {
-                    panic!("JsonRpcMessage requires an 'id' field in each enum variant");
-                }
-
-                let id_field = id_field.unwrap();
-
-                let id_type = &id_field.ty;
-
-                quote! {
-                    #name::#variant_name { id, .. } => *id = new_id,
                 }
             });
 
             quote! {
-                impl JsonRpcMessage for #name {
+                impl #impl_generics JsonRpcMessage for #name #ty_generics #where_clause {
                     fn id(&self) -> Option<u32> {
                         match self {
-                            #(#match_arms)*
-                            _ => None,
+                            #(#variants)*
                         }
                     }
 
                     fn set_id(&mut self, new_id: u32) {
                         match self {
-                            #(#set_id_match_arms)*
-                            _ => {},
+                            #(#variants_set_id)*
                         }
                     }
                 }
             }
         }
-        _ => panic!("JsonRpcMessage can only be derived for structs or enums"),
+        _ => panic!("JsonRpcMessage can only be derived for structs and enums"),
     };
 
     TokenStream::from(expanded)
