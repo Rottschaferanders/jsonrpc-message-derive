@@ -372,7 +372,7 @@ pub fn jsonrpc_message_derive(input: TokenStream) -> TokenStream {
     let mut has_id = false;
 
     match input.data {
-        Data::Struct(data) => {
+        Data::Struct(ref data) => {
             if let Fields::Named(fields) = data.fields {
                 for field in fields.named {
                     if let Some(ident) = field.ident {
@@ -385,7 +385,7 @@ pub fn jsonrpc_message_derive(input: TokenStream) -> TokenStream {
                 }
             }
         }
-        Data::Enum(data) => {
+        Data::Enum(ref data) => {
             for variant in data.variants {
                 if let Fields::Named(fields) = variant.fields {
                     for field in fields.named {
