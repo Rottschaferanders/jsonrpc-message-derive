@@ -175,7 +175,7 @@ pub fn jsonrpc_message_derive(input: TokenStream) -> TokenStream {
             quote! {
                 impl #impl_generics JsonRpcMessage for #name #ty_generics #where_clause {
                     fn id(&self) -> Option<#id_type> {
-                        self.id
+                        Some(self.id)
                     }
 
                     fn set_id(&mut self, id: #id_type) {
