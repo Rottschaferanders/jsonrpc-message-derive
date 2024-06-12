@@ -407,9 +407,11 @@ pub fn jsonrpc_message_derive(input: TokenStream) -> TokenStream {
         println!("cargo:warning=JsonRpcMessage derived for {} without an id field. Unless this is intended for parsing JSON-RPC notification messages, consider adding an id field.", name);
     }
 
+
     let id_type = if let Some(id_type) = id_type {
         match id_type {
-            Type::Path(TypePath { path, .. }) => {
+            // Type::Path(TypePath { path, .. }) => {
+            Type::Path(TypePath { ref path, .. }) => {
                 let segments = path.segments.iter().collect::<Vec<_>>();
                 if let Some(PathSegment { ident, arguments }) = segments.last() {
                     match (ident.to_string().as_str(), arguments) {
