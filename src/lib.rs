@@ -130,7 +130,7 @@ pub fn jsonrpc_message_derive(input: TokenStream) -> TokenStream {
                 let variant_name = &variant.ident;
                 match &variant.fields {
                     Fields::Named(fields) => {
-                        let id_field = fields.named.iter().find(|field| field.ident.as_ref().unwrap() == &id_field.unwrap());
+                        let id_field = fields.named.iter().find(|field| field.ident.as_ref().unwrap() == id_field.as_ref().unwrap());
                         if let Some(id_field) = id_field {
                             quote! {
                                 #name::#variant_name { #id_field: id, .. } => id.map(|x| x as u32),
@@ -148,7 +148,7 @@ pub fn jsonrpc_message_derive(input: TokenStream) -> TokenStream {
                 let variant_name = &variant.ident;
                 match &variant.fields {
                     Fields::Named(fields) => {
-                        let id_field = fields.named.iter().find(|field| field.ident.as_ref().unwrap() == &id_field.unwrap());
+                        let id_field = fields.named.iter().find(|field| field.ident.as_ref().unwrap() == id_field.as_ref().unwrap());
                         if let Some(id_field) = id_field {
                             quote! {
                                 #name::#variant_name { #id_field, .. } => *#id_field = Some(new_id as _),
