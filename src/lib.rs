@@ -7,6 +7,7 @@ use quote::{quote, format_ident};
 // use syn::{parse_macro_input, DeriveInput, Fields, Data, FieldsNamed, Field, DataEnum, Variant, Type};
 // use syn::spanned::Spanned;
 // use syn::{parse_macro_input, DeriveInput, Fields, Data, FieldsNamed, Field, DataEnum, Variant, Type, TypePath, PathArguments, PathSegment, GenericArgument};
+// use syn::{parse_macro_input, DeriveInput, Fields, Data, FieldsNamed, Field, DataEnum, Variant, Type, TypePath, PathArguments, PathSegment, GenericArgument, Ident};
 use syn::{parse_macro_input, DeriveInput, Fields, Data, FieldsNamed, Field, DataEnum, Variant, Type, TypePath, PathArguments, PathSegment, GenericArgument, Ident};
 use std::collections::HashSet;
 
@@ -28,7 +29,7 @@ pub fn jsonrpc_message_derive(input: TokenStream) -> TokenStream {
                 for field in fields.named.iter() {
                     if let Some(ident) = &field.ident {
                         if ident == "id" {
-                            id_field = Some(ident);
+                            id_field = Some(ident.clone());
                             id_type = Some(field.ty.clone());
                             has_id = true;
                         }
@@ -42,7 +43,7 @@ pub fn jsonrpc_message_derive(input: TokenStream) -> TokenStream {
                     for field in fields.named.iter() {
                         if let Some(ident) = &field.ident {
                             if ident == "id" {
-                                id_field = Some(ident);
+                                id_field = Some(ident.clone());
                                 id_type = Some(field.ty.clone());
                                 has_id = true;
                             }
@@ -98,22 +99,30 @@ pub fn jsonrpc_message_derive(input: TokenStream) -> TokenStream {
 
     let expanded = match input.data {
         Data::Struct(data) => {
-            if let Fields::Named(fields) = data.fields {
-                let field_names = fields.named.iter().map(|field| field.ident.clone().unwrap());
-                let field_names_filter_id = field_names.clone().filter(|field| field != "id");
+            if let Some(id_field) = id_field {
                 quote! {
                     impl #impl_generics JsonRpcMessage for #name #ty_generics #where_clause {
                         fn id(&self) -> Option<u32> {
-                            self.id.map(|x| x as u32)
+                            self.#id_field.map(|x| x as u32)
                         }
 
                         fn set_id(&mut self, new_id: u32) {
-                            self.id = Some(new_id as #id_type);
+                            self.#id_field = Some(new_id as _);
                         }
                     }
                 }
             } else {
-                panic!("JsonRpcMessage can only be derived for structs with named fields");
+                quote! {
+                    impl #impl_generics JsonRpcMessage for #name #ty_generics #where_clause {
+                        fn id(&self) -> Option<u32> {
+                            None
+                        }
+
+                        fn set_id(&mut self, _new_id: u32) {
+                            panic!("Cannot set id on a notification message");
+                        }
+                    }
+                }
             }
         }
         Data::Enum(data) => {
@@ -121,10 +130,10 @@ pub fn jsonrpc_message_derive(input: TokenStream) -> TokenStream {
                 let variant_name = &variant.ident;
                 match &variant.fields {
                     Fields::Named(fields) => {
-                        let id_field = fields.named.iter().find(|field| field.ident.as_ref().unwrap() == "id");
+                        let id_field = fields.named.iter().find(|field| field.ident.as_ref().unwrap() == &id_field.unwrap());
                         if let Some(id_field) = id_field {
                             quote! {
-                                #name::#variant_name { id, .. } => id.map(|x| x as u32),
+                                #name::#variant_name { #id_field: id, .. } => id.map(|x| x as u32),
                             }
                         } else {
                             quote! {
@@ -139,14 +148,14 @@ pub fn jsonrpc_message_derive(input: TokenStream) -> TokenStream {
                 let variant_name = &variant.ident;
                 match &variant.fields {
                     Fields::Named(fields) => {
-                        let id_field = fields.named.iter().find(|field| field.ident.as_ref().unwrap() == "id");
+                        let id_field = fields.named.iter().find(|field| field.ident.as_ref().unwrap() == &id_field.unwrap());
                         if let Some(id_field) = id_field {
                             quote! {
-                                #name::#variant_name { id, .. } => *id = Some(new_id as #id_type),
+                                #name::#variant_name { #id_field, .. } => *#id_field = Some(new_id as _),
                             }
                         } else {
                             quote! {
-                                #name::#variant_name { .. } => {},
+                                #name::#variant_name { .. } => panic!("Cannot set id on a notification message"),
                             }
                         }
                     }
@@ -175,6 +184,171 @@ pub fn jsonrpc_message_derive(input: TokenStream) -> TokenStream {
 
     TokenStream::from(expanded)
 }
+
+// #[proc_macro_derive(JsonRpcMessage)]
+// pub fn jsonrpc_message_derive(input: TokenStream) -> TokenStream {
+//     let input = parse_macro_input!(input as DeriveInput);
+//     let name = input.ident;
+
+//     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+
+//     let mut id_field = None;
+//     let mut id_type = None;
+//     let mut has_id = false;
+
+//     match input.data {
+//         Data::Struct(ref data) => {
+//             if let Fields::Named(ref fields) = data.fields {
+//                 for field in fields.named.iter() {
+//                     if let Some(ident) = &field.ident {
+//                         if ident == "id" {
+//                             id_field = Some(ident);
+//                             id_type = Some(field.ty.clone());
+//                             has_id = true;
+//                         }
+//                     }
+//                 }
+//             }
+//         }
+//         Data::Enum(ref data) => {
+//             for variant in data.variants.iter() {
+//                 if let Fields::Named(ref fields) = variant.fields {
+//                     for field in fields.named.iter() {
+//                         if let Some(ident) = &field.ident {
+//                             if ident == "id" {
+//                                 id_field = Some(ident);
+//                                 id_type = Some(field.ty.clone());
+//                                 has_id = true;
+//                             }
+//                         }
+//                     }
+//                 }
+//             }
+//         }
+//         _ => panic!("JsonRpcMessage can only be derived for structs and enums"),
+//     }
+
+//     if !has_id {
+//         println!("cargo:warning=JsonRpcMessage derived for {} without an id field. Unless this is intended for parsing JSON-RPC notification messages, consider adding an id field.", name);
+//     }
+
+//     let id_type = if let Some(id_type) = id_type {
+//         match id_type {
+//             Type::Path(TypePath { ref path, .. }) => {
+//                 let segments = path.segments.iter().collect::<Vec<_>>();
+//                 if let Some(PathSegment { ident, arguments }) = segments.last() {
+//                     match (ident.to_string().as_str(), arguments) {
+//                         ("Option", PathArguments::AngleBracketed(args)) => {
+//                             if let Some(syn::GenericArgument::Type(Type::Path(TypePath { path, .. }))) = args.args.first() {
+//                                 let segments = path.segments.iter().collect::<Vec<_>>();
+//                                 if let Some(PathSegment { ident, .. }) = segments.last() {
+//                                     match ident.to_string().as_str() {
+//                                         "u8" | "u16" | "u32" | "u64" | "u128" | "i8" | "i16" | "i32" | "i64" | "i128" | "Uuid" => {
+//                                             quote! { #id_type }
+//                                         }
+//                                         _ => panic!("JsonRpcMessage id field must be an integer type or UUID"),
+//                                     }
+//                                 } else {
+//                                     panic!("JsonRpcMessage id field must be an integer type or UUID");
+//                                 }
+//                             } else {
+//                                 panic!("JsonRpcMessage id field must be an integer type or UUID");
+//                             }
+//                         }
+//                         ("u8" | "u16" | "u32" | "u64" | "u128" | "i8" | "i16" | "i32" | "i64" | "i128" | "Uuid", _) => {
+//                             quote! { std::option::Option<#id_type> }
+//                         }
+//                         _ => panic!("JsonRpcMessage id field must be an integer type or UUID"),
+//                     }
+//                 } else {
+//                     panic!("JsonRpcMessage id field must be an integer type or UUID");
+//                 }
+//             }
+//             _ => panic!("JsonRpcMessage id field must be an integer type or UUID"),
+//         }
+//     } else {
+//         quote! { std::option::Option<u32> }
+//     };
+
+//     let expanded = match input.data {
+//         Data::Struct(data) => {
+//             if let Fields::Named(fields) = data.fields {
+//                 let field_names = fields.named.iter().map(|field| field.ident.clone().unwrap());
+//                 let field_names_filter_id = field_names.clone().filter(|field| field != "id");
+//                 quote! {
+//                     impl #impl_generics JsonRpcMessage for #name #ty_generics #where_clause {
+//                         fn id(&self) -> Option<u32> {
+//                             self.id.map(|x| x as u32)
+//                         }
+
+//                         fn set_id(&mut self, new_id: u32) {
+//                             self.id = Some(new_id as #id_type);
+//                         }
+//                     }
+//                 }
+//             } else {
+//                 panic!("JsonRpcMessage can only be derived for structs with named fields");
+//             }
+//         }
+//         Data::Enum(data) => {
+//             let variants = data.variants.iter().map(|variant| {
+//                 let variant_name = &variant.ident;
+//                 match &variant.fields {
+//                     Fields::Named(fields) => {
+//                         let id_field = fields.named.iter().find(|field| field.ident.as_ref().unwrap() == "id");
+//                         if let Some(id_field) = id_field {
+//                             quote! {
+//                                 #name::#variant_name { id, .. } => id.map(|x| x as u32),
+//                             }
+//                         } else {
+//                             quote! {
+//                                 #name::#variant_name { .. } => None,
+//                             }
+//                         }
+//                     }
+//                     _ => panic!("JsonRpcMessage can only be derived for enums with named fields"),
+//                 }
+//             });
+//             let variants_set_id = data.variants.iter().map(|variant| {
+//                 let variant_name = &variant.ident;
+//                 match &variant.fields {
+//                     Fields::Named(fields) => {
+//                         let id_field = fields.named.iter().find(|field| field.ident.as_ref().unwrap() == "id");
+//                         if let Some(id_field) = id_field {
+//                             quote! {
+//                                 #name::#variant_name { id, .. } => *id = Some(new_id as #id_type),
+//                             }
+//                         } else {
+//                             quote! {
+//                                 #name::#variant_name { .. } => {},
+//                             }
+//                         }
+//                     }
+//                     _ => panic!("JsonRpcMessage can only be derived for enums with named fields"),
+//                 }
+//             });
+
+//             quote! {
+//                 impl #impl_generics JsonRpcMessage for #name #ty_generics #where_clause {
+//                     fn id(&self) -> Option<u32> {
+//                         match self {
+//                             #(#variants)*
+//                         }
+//                     }
+
+//                     fn set_id(&mut self, new_id: u32) {
+//                         match self {
+//                             #(#variants_set_id)*
+//                         }
+//                     }
+//                 }
+//             }
+//         }
+//         _ => panic!("JsonRpcMessage can only be derived for structs and enums"),
+//     };
+
+//     TokenStream::from(expanded)
+// }
 
 
 
